@@ -1,3 +1,6 @@
 storage*
 github*
 CLAUDE.md
+
+.venv/
+.DS_Store
