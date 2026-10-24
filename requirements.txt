@@ -1,0 +1,4 @@
+dbt-core
+dbt-duckdb
+prefect==3.9.0
+httpx
