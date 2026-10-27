@@ -11,6 +11,8 @@ import pandas as pd
 from prefect import flow, task, get_run_logger
 from prefect_dbt import PrefectDbtRunner, PrefectDbtSettings
 
+from pipeline.extract import fetch_reviews, paginate
+
 PROJECT_DIR = Path(__file__).parent
 RAW_DIR = PROJECT_DIR / "data" / "raw"
 LOG_DIR = PROJECT_DIR / "logs"
@@ -18,24 +20,32 @@ PLOTS_DIR = PROJECT_DIR / "plots"
 DB_PATH = PROJECT_DIR / "packages.duckdb"
 LOADED_MARKER = RAW_DIR / "_LOADED"
 
-GITHUB_API = "https://api.github.com"
-GITHUB_TOKEN = os.environ.get("GH_PAT")
-WINDOW_START = "2024-01-01T00:00:00Z"
+REPOS = ["scikit-learn/scikit-learn", "dask/dask", "plotly/plotly.py"]   # package set B
+ENDPOINTS = ["commits", "pulls", "reviews", "releases"]                  # one data/raw/ subfolder each
+SINCE = "2026-01-01T00:00:00Z"                                           # DEV window; real run: 2024-01-01T00:00:00Z
 
-# TODO: set to your package set (A, B, or C)
-REPOS = [
-    "owner/large_repo",
-    "owner/small_repo_1",
-    "owner/small_repo_2",
-]
-
-ENDPOINTS = ["commits", "pulls", "reviews", "releases"]
+TOKEN = os.environ["GH_PAT"]
+HEADERS = {"Authorization": f"Bearer {TOKEN}"}
+BASE_URL = "https://api.github.com/repos"
 
 
 @task
 def extract():
     """Task 1: fetch all endpoints for all repos into data/raw/."""
     logger = get_run_logger()
+    for repo in REPOS:
+        n = paginate(repo, "commits", f"{BASE_URL}/{repo}/commits", {"since": SINCE})
+        logger.info(f"{repo} commits: {n} records")
+
+        n = paginate(repo, "pulls", f"{BASE_URL}/{repo}/pulls",
+                     {"state": "all", "sort": "updated", "direction": "desc"}, stop_before=SINCE)
+        logger.info(f"{repo} pulls: {n} records")
+
+        prs, n = fetch_reviews(repo, BASE_URL, SINCE)
+        logger.info(f"{repo} reviews: {n} records across {prs} PRs")
+
+        n = paginate(repo, "releases", f"{BASE_URL}/{repo}/releases")
+        logger.info(f"{repo} releases: {n} records")
 
 
 @task
