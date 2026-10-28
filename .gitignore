@@ -7,3 +7,4 @@ CLAUDE.md
 data/
 .env
 __pycache__/
+*.duckdb

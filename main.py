@@ -12,6 +12,7 @@ from prefect import flow, task, get_run_logger
 from prefect_dbt import PrefectDbtRunner, PrefectDbtSettings
 
 from pipeline.extract import fetch_reviews, paginate
+from pipeline.load import load_all
 
 PROJECT_DIR = Path(__file__).parent
 RAW_DIR = PROJECT_DIR / "data" / "raw"
@@ -52,6 +53,10 @@ def extract():
 def load():
     """Task 2: upsert landed JSON into raw_* tables, update _load_state, touch _LOADED."""
     logger = get_run_logger()
+    before, after = load_all(RAW_DIR, DB_PATH)
+    for table in after:
+        logger.info(f"{table}: {before[table]} rows before, {after[table]} after")
+    return after
 
 
 @task
